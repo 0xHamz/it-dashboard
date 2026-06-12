@@ -1,58 +1,46 @@
-async function checkERP() {
+export default async function handler(req, res) {
+  const url = "http://trial-ris.rapigra.co.id/";
 
-    const output =
-    document.getElementById("output");
+  const start = Date.now();
+  let status = "OFFLINE";
 
-    try {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      signal: AbortSignal.timeout(8000)
+    });
 
-        const response =
-        await fetch("/api/check-erp");
+    status = response.ok ? "ONLINE" : "ERROR";
 
-        const result =
-        await response.json();
+  } catch (err) {
+    status = "OFFLINE";
+  }
 
-        output.innerHTML = `
-            <div>---------------------------</div>
-            <div>STATUS :
-                ${
-                    result.status === "ONLINE"
-                    ? '<span class="ok">ONLINE</span>'
-                    : '<span class="bad">OFFLINE</span>'
-                }
-            </div>
-            <div>TARGET :
-                ${result.url}
-            </div>
-            <div>RESPONSE CHECK :
-                ${result.responseTime} ms
-            </div>
-            <div>LAST UPDATE :
-                ${new Date().toLocaleString("id-ID")}
-            </div>
-            <div>---------------------------</div>
-        `;
+  const responseTime = Date.now() - start;
 
-        addLog(
-            result.status,
-            result.responseTime
-        );
+  // SIMPAN KE SUPABASE
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/erp_logs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": process.env.SUPABASE_KEY,
+        "Authorization": `Bearer ${process.env.SUPABASE_KEY}`,
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify({
+        status,
+        response_time: responseTime,
+        url
+      })
+    });
+  } catch (e) {
+    console.log("Supabase insert failed:", e.message);
+  }
 
-    } catch(err) {
-
-        output.innerHTML = `
-            <div>---------------------------</div>
-            <div>STATUS :
-                <span class="bad">OFFLINE</span>
-            </div>
-            <div>ERROR :
-                ${err.message}
-            </div>
-            <div>LAST UPDATE :
-                ${new Date().toLocaleString("id-ID")}
-            </div>
-            <div>---------------------------</div>
-        `;
-
-        addLog("OFFLINE", 0);
-    }
+  res.json({
+    status,
+    responseTime,
+    url
+  });
 }
