@@ -1,46 +1,58 @@
-export default async function handler(req, res) {
-  const url = "http://trial-ris.rapigra.co.id/";
+async function checkERP() {
 
-  const start = Date.now();
-  let status = "OFFLINE";
+    const output =
+    document.getElementById("output");
 
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      signal: AbortSignal.timeout(8000)
-    });
+    try {
 
-    status = response.ok ? "ONLINE" : "ERROR";
+        const response =
+        await fetch("/api/check-erp");
 
-  } catch (err) {
-    status = "OFFLINE";
-  }
+        const result =
+        await response.json();
 
-  const responseTime = Date.now() - start;
+        output.innerHTML = `
+            <div>---------------------------</div>
+            <div>STATUS :
+                ${
+                    result.status === "ONLINE"
+                    ? '<span class="ok">ONLINE</span>'
+                    : '<span class="bad">OFFLINE</span>'
+                }
+            </div>
+            <div>TARGET :
+                ${result.url}
+            </div>
+            <div>RESPONSE CHECK :
+                ${result.responseTime} ms
+            </div>
+            <div>LAST UPDATE :
+                ${new Date().toLocaleString("id-ID")}
+            </div>
+            <div>---------------------------</div>
+        `;
 
-  // SIMPAN KE SUPABASE
-  try {
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/erp_logs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": process.env.SUPABASE_KEY,
-        "Authorization": `Bearer ${process.env.SUPABASE_KEY}`,
-        "Prefer": "return=minimal"
-      },
-      body: JSON.stringify({
-        status,
-        response_time: responseTime,
-        url
-      })
-    });
-  } catch (e) {
-    console.log("Supabase insert failed:", e.message);
-  }
+        addLog(
+            result.status,
+            result.responseTime
+        );
 
-  res.json({
-    status,
-    responseTime,
-    url
-  });
+    } catch(err) {
+
+        output.innerHTML = `
+            <div>---------------------------</div>
+            <div>STATUS :
+                <span class="bad">OFFLINE</span>
+            </div>
+            <div>ERROR :
+                ${err.message}
+            </div>
+            <div>LAST UPDATE :
+                ${new Date().toLocaleString("id-ID")}
+            </div>
+            <div>---------------------------</div>
+        `;
+
+        addLog("OFFLINE", 0);
+    }
 }
