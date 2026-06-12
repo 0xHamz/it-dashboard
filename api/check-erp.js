@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const url = "http://trial-ris.rapigra.co.id/";
+  const url = "/api/check-erp";
 
   const start = Date.now();
   let status = "OFFLINE";
