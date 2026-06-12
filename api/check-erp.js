@@ -1,46 +1,38 @@
-export default async function handler(req, res) {
-  const url = "/api/check-erp";
+async function checkERP() {
 
-  const start = Date.now();
-  let status = "OFFLINE";
+    const output = document.getElementById("output");
 
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      signal: AbortSignal.timeout(8000)
-    });
+    try {
 
-    status = response.ok ? "ONLINE" : "ERROR";
+        const res = await fetch("/api/check-erp");
 
-  } catch (err) {
-    status = "OFFLINE";
-  }
+        const data = await res.json();
 
-  const responseTime = Date.now() - start;
+        const statusText =
+            data.status === "ONLINE"
+            ? '<span class="ok">ONLINE</span>'
+            : '<span class="bad">OFFLINE</span>';
 
-  // SIMPAN KE SUPABASE
-  try {
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/erp_logs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": process.env.SUPABASE_KEY,
-        "Authorization": `Bearer ${process.env.SUPABASE_KEY}`,
-        "Prefer": "return=minimal"
-      },
-      body: JSON.stringify({
-        status,
-        response_time: responseTime,
-        url
-      })
-    });
-  } catch (e) {
-    console.log("Supabase insert failed:", e.message);
-  }
+        output.innerHTML = `
+            <div>---------------------------</div>
+            <div>STATUS : ${statusText}</div>
+            <div>TARGET : ${data.url}</div>
+            <div>RESPONSE CHECK : ${data.responseTime} ms</div>
+            <div>LAST UPDATE : ${new Date().toLocaleString("id-ID")}</div>
+            <div>---------------------------</div>
+        `;
 
-  res.json({
-    status,
-    responseTime,
-    url
-  });
+        addLog(data.status, data.responseTime);
+
+    } catch(err){
+
+        output.innerHTML = `
+            <div>---------------------------</div>
+            <div>STATUS : <span class="bad">OFFLINE</span></div>
+            <div>ERROR : ${err.message}</div>
+            <div>---------------------------</div>
+        `;
+
+        addLog("OFFLINE",0);
+    }
 }
