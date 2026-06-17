@@ -36,3 +36,34 @@ async function checkERP() {
         addLog("OFFLINE",0);
     }
 }
+export default async function handler(req, res) {
+
+    try {
+
+        const start = Date.now();
+
+        const response = await fetch(
+            "http://trial-ris.rapigra.co.id/",
+            {
+                method: "GET"
+            }
+        );
+
+        const time = Date.now() - start;
+
+        res.status(200).json({
+            status: "ONLINE",
+            responseTime: time,
+            url: "http://trial-ris.rapigra.co.id"
+        });
+
+    } catch (err) {
+
+        res.status(500).json({
+            status: "OFFLINE",
+            error: err.message
+        });
+
+    }
+
+}
