@@ -569,7 +569,6 @@
 
 <script>
 
-const url = "http://trial-ris.rapigra.co.id/";
 
 // 🔥 SUPABASE CONFIG (ISI SENDIRI)
 const SUPABASE_URL = "https://ijugowtwawhlfphemogi.supabase.co";
@@ -787,50 +786,48 @@ async function saveStock(){
 }
 
 async function checkERP() {
-  const output = document.getElementById("output");
-  const start = Date.now();
 
-  let statusText = `<span class="warn">CHECKING...</span>`;
+    const output = document.getElementById("output");
 
-  try {
-    await fetch(url, {
-      mode: "no-cors",
-      cache: "no-store"
-    });
+    try {
 
-    const time = Date.now() - start;
+        const res = await fetch("/api/check-erp");
 
-    statusText = `<span class="ok">ONLINE</span>`;
+        const data = await res.json();
 
-    output.innerHTML = `
-      <div class="line">---------------------------</div>
-      <div class="line">STATUS : ${statusText}</div>
-      <div class="line">TARGET : http://trial-ris.rapigra.co.id/</div>
-      <div class="line">RESPONSE CHECK : ${time} ms</div>
-      <div class="line">LAST UPDATE : ${new Date().toLocaleString()}</div>
-      <div class="line">---------------------------</div>
-    `;
+        const statusText =
+            data.status === "ONLINE"
+            ? '<span class="ok">ONLINE</span>'
+            : '<span class="bad">OFFLINE</span>';
 
-    addLog("ONLINE", time);
-    sendToSupabase("ONLINE", time);
+        output.innerHTML = `
+            <div class="line">---------------------------</div>
+            <div class="line">STATUS : ${statusText}</div>
+            <div class="line">TARGET : ${data.url}</div>
+            <div class="line">RESPONSE CHECK : ${data.responseTime} ms</div>
+            <div class="line">LAST UPDATE : ${new Date().toLocaleString("id-ID")}</div>
+            <div class="line">---------------------------</div>
+        `;
 
-  } catch (err) {
+        addLog(data.status, data.responseTime);
 
-    const time = Date.now() - start;
+        sendToSupabase(
+            data.status,
+            data.responseTime
+        );
 
-    statusText = `<span class="bad">OFFLINE</span>`;
+    } catch(err){
 
-    output.innerHTML = `
-      <div class="line">---------------------------</div>
-      <div class="line">STATUS : ${statusText}</div>
-      <div class="line">ERROR : ${err.message}</div>
-      <div class="line">LAST UPDATE : ${new Date().toLocaleString()}</div>
-      <div class="line">---------------------------</div>
-    `;
+        output.innerHTML = `
+            <div class="line">---------------------------</div>
+            <div class="line">STATUS : <span class="bad">OFFLINE</span></div>
+            <div class="line">ERROR : ${err.message}</div>
+            <div class="line">LAST UPDATE : ${new Date().toLocaleString("id-ID")}</div>
+            <div class="line">---------------------------</div>
+        `;
 
-    addLog("OFFLINE", 0);
-    sendToSupabase("OFFLINE", 0);
-  }
+        addLog("OFFLINE",0);
+    }
 }
 
 let sparepartSelect;
