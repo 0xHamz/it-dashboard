@@ -5,6 +5,7 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 
   <title>IT Rapigra</title>
 
@@ -189,7 +190,32 @@
         padding:10px;
         background:#030303;
     }
+
+    .stock-critical{
+    animation: blink 1s infinite;
+    font-size: 12px;
+    
+}
+.ts-control,
+.ts-dropdown{
+    background:#0d0d0d !important;
+    color:#cfcfcf !important;
+    border:1px solid #222 !important;
+}
+
+@keyframes blink{
+    0%{
+        opacity:1;
+    }
+    50%{
+        opacity:0.3;
+    }
+    100%{
+        opacity:1;
+    }
+}
   </style>
+  
 </head>
 
 <body>
@@ -229,10 +255,12 @@
 
             <div class="card card-dark mb-3">
 
-                <div class="card-header">
-                    <i class="bi bi-box-seam"></i>
-                    SPAREPART CATRIDGE STOCK
-                </div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+        <i class="bi bi-box-seam"></i>
+        SPAREPART CATRIDGE STOCK
+    </div>
+</div>
 
                 <div class="card-body">
 
@@ -241,6 +269,64 @@
                         <tbody id="stockTable"></tbody>
 
                     </table>
+
+                    <div class="d-flex gap-2 mt-2">
+
+    <button class="btn btn-success btn-sm w-50" onclick="toggleStockForm()">
+        <i class="bi bi-plus-circle"></i>
+        Tambah Stok
+    </button>
+
+    <button class="btn btn-primary btn-sm w-50" onclick="toggleStockHistory()">
+        <i class="bi bi-clock-history"></i>
+        Riwayat
+    </button>
+
+</div>
+                    <div id="stockForm" class="ticket-form mt-3" style="display:none;">
+
+    <label>Sparepart</label>
+    <select id="stock_sparepart" class="form-control mb-2">
+    <option value="">-- Ketik Sparepart Baru --</option>
+        </select>
+
+        <input
+            type="text"
+            id="stock_sparepart_baru"
+            class="form-control mb-2"
+            placeholder="Atau isi sparepart baru">
+
+        <input
+            type="text"
+            id="stock_satuan"
+            class="form-control mb-2"
+            placeholder="Satuan (PCS, Botol, Unit)"
+            value="PCS">
+
+    <label>Jumlah Masuk</label>
+    <input type="number" id="stock_jumlah" class="form-control mb-3">
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-success btn-sm" onclick="saveStock()">
+            <i class="bi bi-save"></i> Simpan
+        </button>
+
+        <button class="btn btn-secondary btn-sm" onclick="toggleStockForm()">
+            Batal
+        </button>
+    </div>
+
+</div>
+
+<div id="stockHistoryBox" class="ticket-form mt-3" style="display:none;">
+
+    <h6>Riwayat Stok Masuk</h6>
+
+    <div id="stockHistoryList" style="max-height:300px; overflow-y:auto;">
+        Loading...
+    </div>
+
+</div>
 
                 </div>
 
@@ -403,38 +489,51 @@
                         id="status"
                         class="form-select bg-dark text-light">
 
-                        <option value="OPEN">OPEN</option>
                         <option value="DONE">DONE</option>
+                        <option value="OPEN">OPEN</option>
 
                     </select>
 
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-4">
 
-                    <label>Keluhan / Permintaan</label>
+    <label>Sparepart Digunakan</label>
 
-                    <textarea
-                        id="pekerjaan"
-                        rows="4"
-                        class="form-control bg-dark text-light"
-                        placeholder="Printer error, FINA lambat, dll">
-                    </textarea>
+    <select
+        id="sparepart"
+        multiple
+        class="form-control bg-dark text-light"
+        placeholder="Pilih Sparepart">
+    </select>
 
-                </div>
+</div>
 
-                <div class="col-md-6">
+<div class="col-md-4">
 
-                    <label>Tindakan IT</label>
+    <label>Keluhan / Permintaan</label>
 
-                    <textarea
-                        id="tindakan"
-                        rows="4"
-                        class="form-control bg-dark text-light"
-                        placeholder="Restart service, install driver, dll">
-                    </textarea>
+    <textarea
+        id="pekerjaan"
+        rows="4"
+        class="form-control bg-dark text-light"
+        placeholder="Printer error, FINA lambat, dll">
+    </textarea>
 
-                </div>
+</div>
+
+<div class="col-md-4">
+
+    <label>Tindakan IT</label>
+
+    <textarea
+        id="tindakan"
+        rows="4"
+        class="form-control bg-dark text-light"
+        placeholder="Restart service, install driver, dll">
+    </textarea>
+
+</div>
 
             </div>
 
@@ -465,8 +564,12 @@
 
 </div>
 
+
+
+
 <script>
-const url = "https://it-dashboard-umber.vercel.app/api/check-erp";
+
+const url = "http://trial-ris.rapigra.co.id/";
 
 // 🔥 SUPABASE CONFIG (ISI SENDIRI)
 const SUPABASE_URL = "https://ijugowtwawhlfphemogi.supabase.co";
@@ -513,6 +616,174 @@ async function sendToSupabase(status, time) {
   });
 
   console.log("LOG SENT");
+}
+
+async function loadSparepartDropdown(){
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/sparepart_stock?select=id,nama`,
+        {
+            headers:{
+                apikey:SUPABASE_KEY,
+                Authorization:`Bearer ${SUPABASE_KEY}`
+            }
+        }
+    );
+
+    const data = await res.json();
+
+    const select = document.getElementById("stock_sparepart");
+
+    select.innerHTML = `<option value="">Pilih Sparepart</option>`;
+
+    data.forEach(item=>{
+        select.innerHTML += `
+            <option value="${item.id}">
+                ${item.nama}
+            </option>
+        `;
+    });
+}
+
+async function saveStock(){
+
+    const sparepartId =
+        document.getElementById("stock_sparepart").value;
+
+    const sparepartBaru =
+        document.getElementById("stock_sparepart_baru")
+        .value
+        .trim();
+
+    const satuan =
+        document.getElementById("stock_satuan")
+        .value
+        .trim() || "PCS";
+
+    const jumlah = parseFloat(
+        document.getElementById("stock_jumlah").value
+    );
+
+    if(!jumlah || jumlah <= 0){
+        alert("Masukkan jumlah stok");
+        return;
+    }
+
+    let namaSparepart = "";
+
+    // ===================================
+    // TAMBAH SPAREPART BARU
+    // ===================================
+    if(sparepartBaru){
+
+        namaSparepart = sparepartBaru;
+
+        const insert = await fetch(
+            `${SUPABASE_URL}/rest/v1/sparepart_stock`,
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json",
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`
+                },
+                body:JSON.stringify({
+                    nama: sparepartBaru,
+                    stok: jumlah,
+                    satuan: satuan
+                })
+            }
+        );
+
+        if(!insert.ok){
+            alert("Gagal menambah sparepart baru");
+            return;
+        }
+
+    }else{
+
+        // ===================================
+        // TAMBAH STOK SPAREPART LAMA
+        // ===================================
+        if(!sparepartId){
+            alert("Pilih sparepart atau isi sparepart baru");
+            return;
+        }
+
+        const cek = await fetch(
+            `${SUPABASE_URL}/rest/v1/sparepart_stock?id=eq.${sparepartId}&select=*`,
+            {
+                headers:{
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+
+        const data = await cek.json();
+
+        if(!data.length){
+            alert("Data sparepart tidak ditemukan");
+            return;
+        }
+
+        const stokBaru =
+            Number(data[0].stok) + jumlah;
+
+        namaSparepart = data[0].nama;
+
+        const update = await fetch(
+            `${SUPABASE_URL}/rest/v1/sparepart_stock?id=eq.${sparepartId}`,
+            {
+                method:"PATCH",
+                headers:{
+                    "Content-Type":"application/json",
+                    apikey:SUPABASE_KEY,
+                    Authorization:`Bearer ${SUPABASE_KEY}`
+                },
+                body:JSON.stringify({
+                    stok: stokBaru
+                })
+            }
+        );
+
+        if(!update.ok){
+            alert("Gagal update stok");
+            return;
+        }
+    }
+
+    // ===================================
+    // SIMPAN RIWAYAT
+    // ===================================
+    await fetch(
+        `${SUPABASE_URL}/rest/v1/stock_history`,
+        {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                apikey:SUPABASE_KEY,
+                Authorization:`Bearer ${SUPABASE_KEY}`
+            },
+            body:JSON.stringify({
+                nama_sparepart:namaSparepart,
+                tipe:"IN",
+                jumlah:jumlah,
+                catatan:"Tambah stok manual"
+            })
+        }
+    );
+
+    alert("Stok berhasil ditambahkan");
+
+    document.getElementById("stock_jumlah").value = "";
+    document.getElementById("stock_sparepart_baru").value = "";
+
+    loadSparepartStock();
+    loadSparepartDropdown();
+    loadSparepartOption();
+
+    toggleStockForm();
 }
 
 async function checkERP() {
@@ -562,6 +833,67 @@ async function checkERP() {
   }
 }
 
+let sparepartSelect;
+
+async function loadSparepartOption(){
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/sparepart_stock?select=*`,
+        {
+            headers:{
+                apikey:SUPABASE_KEY,
+                Authorization:`Bearer ${SUPABASE_KEY}`
+            }
+        }
+    );
+
+    const data = await res.json();
+
+    const select =
+        document.getElementById("sparepart");
+
+    select.innerHTML = "";
+
+    data.forEach(item => {
+
+        select.innerHTML += `
+            <option value="${item.id}">
+                ${item.nama} (${item.stok} ${item.satuan})
+            </option>
+        `;
+
+    });
+
+    if(sparepartSelect){
+        sparepartSelect.destroy();
+    }
+
+    sparepartSelect = new TomSelect("#sparepart",{
+        plugins:["remove_button"],
+        create:false,
+        persist:false,
+        maxItems:null,
+        hideSelected:true,
+        closeAfterSelect:true
+    });
+}
+
+function toggleStockForm(){
+
+    const form = document.getElementById("stockForm");
+    const table = document.getElementById("stockTable");
+
+    const isHidden = form.style.display === "none" || form.style.display === "";
+
+    if(isHidden){
+        form.style.display = "block";
+        table.parentElement.style.display = "none";
+    } else {
+        form.style.display = "none";
+        table.parentElement.style.display = "table";
+    }
+}
+
 async function loadSparepartStock() {
 
   try {
@@ -597,14 +929,25 @@ async function loadSparepartStock() {
       else if (item.stok <= 20)
         cls = "medium-stock";
 
-      html += `
-        <tr>
-          <td>${item.nama}</td>
-          <td class="${cls}">
-            ${item.stok} ${item.satuan}
-          </td>
-        </tr>
-      `;
+      let stokView = `${item.stok} ${item.satuan}`;
+
+if(item.stok <= 1){
+  stokView = `
+    <span class="badge bg-danger stock-critical">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      ${item.stok} ${item.satuan}
+    </span>
+  `;
+}
+
+html += `
+  <tr>
+    <td>${item.nama}</td>
+    <td class="${cls}">
+      ${stokView}
+    </td>
+  </tr>
+`;
     });
 
     table.innerHTML = html;
@@ -615,6 +958,91 @@ async function loadSparepartStock() {
     document.getElementById("stockTable").innerHTML =
       "<tr><td colspan='2'>Failed Load</td></tr>";
   }
+}
+
+function toggleStockHistory(){
+
+    const form = document.getElementById("stockForm");
+    const history = document.getElementById("stockHistoryBox");
+    const table = document.querySelector("#stockTable").closest("table");
+
+    const show = history.style.display === "none" || history.style.display === "";
+
+    if(show){
+        history.style.display = "block";
+        form.style.display = "none";
+        table.style.display = "none";
+
+        loadStockHistory();
+    } else {
+        history.style.display = "none";
+        table.style.display = "table";
+    }
+}
+
+async function loadStockHistory(){
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/stock_history?select=*&order=id.desc`,
+        {
+            headers:{
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+        }
+    );
+
+    const data = await res.json();
+
+    const box = document.getElementById("stockHistoryList");
+
+    if(!data.length){
+        box.innerHTML = "<p>Tidak ada data</p>";
+        return;
+    }
+
+    let html = "";
+
+    data.forEach(item => {
+
+        const dt = item.created_at
+            ? new Date(item.created_at).toLocaleString("id-ID")
+            : "-";
+
+        html += `
+        <div class="task-card">
+
+            <div class="d-flex justify-content-between">
+
+                <div>
+                    <b>${item.nama_sparepart}</b><br>
+                    <span style="color:#0dcaf0;">
+                        +${item.jumlah}
+                    </span>
+                    <small>(${item.tipe})</small>
+                </div>
+
+                <div class="text-end" style="font-size:11px;color:#777;">
+                    ${dt}
+                </div>
+
+            </div>
+
+            <div style="font-size:11px;color:#999;">
+                ${item.catatan || ''}
+            </div>
+
+        </div>
+        `;
+    });
+
+    box.innerHTML = html;
+}
+
+function showStockTable(){
+    document.getElementById("stockForm").style.display = "none";
+    document.getElementById("stockHistoryBox").style.display = "none";
+    document.querySelector("#stockTable").closest("table").style.display = "table";
 }
 
 async function loadServerTemperature() {
@@ -683,6 +1111,8 @@ async function loadServerTemperature() {
             "<span class='bad'>OFFLINE</span>";
     }
 }
+
+
 async function saveTask(){
 
   const now = new Date();
@@ -691,17 +1121,27 @@ async function saveTask(){
   const wib = new Date(
     now.getTime() + (7 * 60 * 60 * 1000)
   );
+  const selectedSparepart =
+    sparepartSelect
+    ? sparepartSelect.getValue()
+    : [];
 
-  const data = {
-    user_name: document.getElementById("user_name").value,
-    divisi: document.getElementById("divisi").value,
-    pekerjaan: document.getElementById("pekerjaan").value,
-    tindakan: document.getElementById("tindakan").value,
-    status: document.getElementById("status").value,
+const sparepartText =
+    [...document.getElementById("sparepart").selectedOptions]
+    .map(x => x.text.split(" (")[0])
+    .join(", ");
 
-    // simpan WIB
-    tanggal: wib.toISOString().replace("Z","")
-  };
+const data = {
+  user_name: document.getElementById("user_name").value,
+  divisi: document.getElementById("divisi").value,
+  pekerjaan: document.getElementById("pekerjaan").value,
+  tindakan: document.getElementById("tindakan").value,
+  status: document.getElementById("status").value,
+
+  sparepart: sparepartText,
+
+  tanggal: wib.toISOString().replace("Z","")
+};
 
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/it_tasks`,
@@ -717,6 +1157,60 @@ async function saveTask(){
   );
 
   if(res.ok){
+
+    const selectedSparepart =
+    sparepartSelect.items;
+
+for(const sparepartId of selectedSparepart){
+
+    const cek = await fetch(
+        `${SUPABASE_URL}/rest/v1/sparepart_stock?id=eq.${sparepartId}&select=*`,
+        {
+            headers:{
+                apikey:SUPABASE_KEY,
+                Authorization:`Bearer ${SUPABASE_KEY}`
+            }
+        }
+    );
+
+    const stokData = await cek.json();
+
+    if(stokData.length){
+
+        let pengurangan = 1;
+
+        // jika nama sparepart mengandung TONER
+        if(
+            stokData[0].nama
+            .toUpperCase()
+            .includes("TONER")
+        ){
+            pengurangan = 0.1;
+        }
+
+        const stokBaru =
+            Number(stokData[0].stok) - pengurangan;
+
+        if(stokBaru >= 0){
+
+            await fetch(
+                `${SUPABASE_URL}/rest/v1/sparepart_stock?id=eq.${sparepartId}`,
+                {
+                    method:"PATCH",
+                    headers:{
+                        "Content-Type":"application/json",
+                        apikey:SUPABASE_KEY,
+                        Authorization:`Bearer ${SUPABASE_KEY}`
+                    },
+                    body:JSON.stringify({
+                        stok: stokBaru
+                    })
+                }
+            );
+
+        }
+    }
+}
 
     alert("Task berhasil disimpan");
 
@@ -846,6 +1340,22 @@ async function loadTasks(){
             ">
               <b>Tindakan :</b>
               ${row.tindakan}
+
+              ${
+row.sparepart
+?
+`
+<div style="
+  margin-top:8px;
+  color:#0dcaf0;
+  font-size:12px;
+">
+  <b>Sparepart :</b>
+  ${row.sparepart}
+</div>
+`
+: ""
+}
             </div>
             `
             : ""
@@ -1017,6 +1527,7 @@ async function exportTask(){
 }
 
 
+
 const today =
 new Date().toISOString().split('T')[0];
 
@@ -1036,14 +1547,20 @@ checkERP();
 loadSparepartStock();
 loadServerTemperature();
 loadTasks();
+loadSparepartOption();
+loadSparepartDropdown();
 
 // AUTO REFRESH 1 JAM
 setInterval(checkERP, 60 * 60 * 1000);
 setInterval(loadSparepartStock, 60 * 60 * 1000);
 setInterval(loadServerTemperature, 60 * 60 * 1000);
 setInterval(loadTasks, 60 * 60 * 1000);
+setInterval(loadSparepartOption, 60 * 60 * 1000);
+setInterval(loadSparepartDropdown, 60 * 60 * 1000);
 
 </script>
 <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
+
 </body>
 </html>
